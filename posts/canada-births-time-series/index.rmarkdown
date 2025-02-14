@@ -1,7 +1,7 @@
 ---
 title: "Canadian Births Time Series Analysis"
 author: "Andrew Saul"
-date: "2025-02-17"
+date: "2025-02-16"
 categories: [Time-series, Modelling]
 image: "image.jpg"
 editor: visual
@@ -33,8 +33,6 @@ pacman::p_load(tidyverse,
 births_df <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2024/2024-01-09/canada_births_1991_2022.csv')
 ```
 
-
-
 ## Introduction
 
 This work was inspired from the Tidy Tuesday session titled ["Canadian NHL Player Birth Dates"](https://github.com/rfordatascience/tidytuesday/blob/main/data/2024/2024-01-09/readme.md). I utilised the R package [fpp3](https://otexts.com/fpp3/) to analyse the data.
@@ -57,8 +55,6 @@ The goals of this blog were two-fold. Primarily I was interested in developing c
 
 In order to examine time-series data with the fpp3 package, the tibble data needs to be converted into a [**tsibble** object.](https://otexts.com/fpp3/tsibbles.html).
 
-
-
 ```{r}
 # creation of tsibble object
 ts_births <- 
@@ -68,10 +64,7 @@ births_df %>%
   as_tsibble(index = ymdate)
 ```
 
-
-
 A plot of the number of monthly births in Canada from January 1991 is displayed in @fig-fig1.
-
 
 ```{r}
 #| label: fig-fig1
@@ -84,13 +77,9 @@ ts_births %>%
        title = "Canadian Registered Births")
 ```
 
-
-
 ### Seasonality
 
 We can investigate the seasonality of the plot using the ggseason function
-
-
 
 ```{r}
 #| label: fig-fig2
@@ -100,11 +89,7 @@ ts_births %>%
   gg_season(births, labels = "both")
 ```
 
-
-
 In @fig-fig2, each year is plotted separately. However, with over 30 lines this plot is difficult to interpret. Instead, seasonality can be plotted by facetting the ggplot into months.
-
-
 
 ```{r}
 #| label: fig-fig3
@@ -113,15 +98,11 @@ ts_births %>%
   gg_subseries(births, labels = "both")
 ```
 
-
-
 In @fig-fig3 it appears that most births occur in July (summer) and the fewest births occur in February (winter). One can also see from this plot that births peaked at the beginning of the time series and decreased to a minimum around 2001. From 2007 until 2021 the birth rate stabilised at a relatively high level, but fell once again for the final recorded year of 2022.
 
 ## Correlations
 
 An assumption of time series modelling is that the previous time point(s) influence the current time point.
-
-
 
 ```{r}
 #| label: fig-lag
@@ -132,13 +113,9 @@ ts_births %>%
   
 ```
 
-
-
 @fig-lag represents the correlation between time points separated by months, depicted by the lag number. We can see that there is a strong, maximum correlation between time points separated by 12 months. This indicates yearly seasonal variation.
 
 ### Autocorrelation Function (ACF)
-
-
 
 ```{r}
 #| label: fig-acf
@@ -150,17 +127,13 @@ ts_births %>%
   labs(title = "Canadian monthly birth data")
 ```
 
-
-
-The ACF depicts the relationships we see in the lag plots. A slow decline in ACF values vs lag number indicates that the value from the current time point is substantially influenced by values of time points both close and distant. A repeated pattern of increased ACF values indicate a seasonal component in the series. In  @fig-acf both trend and seasonality are present. The repeated pattern in the ACF indicates a large seasonal component. As this repeated pattern peaks at 12 and 24 months, the seasonal component is yearly. The gradual reduction in ACF value is due to the trend component.
+The ACF depicts the relationships we see in the lag plots. A slow decline in ACF values vs lag number indicates that the value from the current time point is substantially influenced by values of time points both close and distant. A repeated pattern of increased ACF values indicate a seasonal component in the series. In @fig-acf both trend and seasonality are present. The repeated pattern in the ACF indicates a large seasonal component. As this repeated pattern peaks at 12 and 24 months, the seasonal component is yearly. The gradual reduction in ACF value is due to the trend component.
 
 ## Time Series Decompostion
 
 ### Transformations
 
 When viewing @fig-fig1, the amount of variation should be consistant. For instance, the seasonal variation amplitude may increase by a constant factor over time. In order to maintain consistent variation, a transformation may be required.
-
-
 
 ```{r}
 #| label: fig-transformation
@@ -184,8 +157,6 @@ ts_births_bc %>%
 
 ```
 
-
-
 For the population data, a box-cox transformation value was calculated to be `r lambda`. However, the variation seen in @fig-fig-transformation appeared similar to the non-transformed data in @fig-fig1, so therefore data transformation was not implemented for further analysis.
 
 ### ARIMA
@@ -195,8 +166,6 @@ ARIMA models aim to describe the autocorrelations in the data
 #### Stage 1
 
 Investigate the differencing between data points. The code below plots the difference between successive time points ie $y_t$ and $y_{t-1}$.
-
-
 
 ```{r}
 #| label: fig-diff_births
@@ -208,11 +177,7 @@ ts_births %>%
 
 ```
 
-
-
-In figure @fig-diff_births the differencing by one month has not created a non-stationary plot.  However, when differencing by 12 months (@fig-12diff_births) less of the seasonality is present. 
-
-
+In figure @fig-diff_births the differencing by one month has not created a non-stationary plot. However, when differencing by 12 months (@fig-12diff_births) less of the seasonality is present.
 
 ```{r}
 #| label: fig-12diff_births
@@ -233,24 +198,16 @@ ts_births %>%
   
 ```
 
-
-
-Figure @fig-acfdiff demonstrates the non-stationary differencing effect in an ACF plot. Only lags around 12 were not greater than the significance levels (blue lines).  The slow decay of lagged values indicate that previous values heavily influence the current value.  Only those values around 12 months have little to no influence.
-
-
+Figure @fig-acfdiff demonstrates the non-stationary differencing effect in an ACF plot. Only lags around 12 were not greater than the significance levels (blue lines). The slow decay of lagged values indicate that previous values heavily influence the current value. Only those values around 12 months have little to no influence.
 
 ```{r}
 ts_births %>% 
   gg_tsdisplay(difference(births), plot_type='partial')
 ```
 
-
-
 ### STL decomposition (Seasonal and Trend decomposition using LOESS)
 
 STL decomposition involves splitting up the data into trend/cyclical, seasonal and residual components. If it has been ascertained that the decomposition is multiplicative then components will need to be transformed. The Canadian population data appears additive and no transformation is deemed necessary.
-
-
 
 ```{r}
  dcmp <- 
@@ -271,11 +228,7 @@ components(dcmp) |>
   )
 ```
 
-
-
 @fig-trendoverlay demonstrates the trend component overlaying the complete plot.
-
-
 
 ```{r}
 #| label: fig-stl
@@ -286,15 +239,11 @@ components(dcmp) |>
   components() %>% autoplot()
 ```
 
-
-
 @fig-stl is a representation of the plot divided into the three STL components. The trend component is maximum at the beginning of the trace, then decreases to its minimum, finally regaining most of its gains with a period of stability before decreasing during the covid period. It is noteworthy that the seasonal component can change slowly over time. The bars on the side of each plots have the same length.
 
 ## Forecasting
 
 Baseline (simple) forecasting methods include the mean, naive and seasonal naive methods. These methods often act as benchmarks to more complicated techniques
-
-
 
 ```{r}
 #| label: fig-benchmark
@@ -331,8 +280,6 @@ pop_2019_22 %>%
   autolayer(pred_pop, births, color = "black")
 ```
 
-
-
 @fig-benchmark demonstrates four methods of benchmark forecasting. The mean method forecasts all future values as the average of all historical values. The Naive method forecasts all future values as the last observed value. The naive-seasonal method forecasts each new value to be equal to the last observed value from the same season. The drift method allows changes to increase or decrease in time, where the gradient is set as the average change seen in the historical data. In this figure the last four years were forecasted using the four methods.
 
 ## Exponential Smoothing
@@ -346,8 +293,6 @@ Holt-Winters method accounts not only for trend but also seasonality. The method
 The two variations of this method relate to the seasonal component. If the seasonal variations are constant though the series then the additive method is chosen. If however the variations are changing proportional to the level of the series then the multiplicative method is chosen.
 
 Code for the two seasonality models are shown below. A comparison of the fits for both models are compared.
-
-
 
 ```{r}
 #| label: tbl-esacc
@@ -363,11 +308,7 @@ fit <-
 fc <- fit %>% forecast() 
 ```
 
-
-
 #### Fits of additive and multiplicative HW models
-
-
 
 ```{r}
 augment(fit)
@@ -376,11 +317,7 @@ tidy(fit) %>%
   spread(.model, estimate)
 ```
 
-
-
 Note that for the additive model, all the seasonal components add to 0. For the multiplicative model, all the seasonal components add to 1.
-
-
 
 ```{r}
 #| label: fig-models
@@ -390,13 +327,9 @@ fc %>%
 
 ```
 
-
-
 In @fig-models the difference between additive and multiplicative levels is small. However, the 95% prediction intervals are noticably greater for the additive model.
 
-We can also investigate the effect of dampening on the additive (or multiplicative) model. This is a common method that performs extremely well. [See @11.40](https://otexts.com/fpp3/holt-winters.html) 
-
-
+We can also investigate the effect of dampening on the additive (or multiplicative) model. This is a common method that performs extremely well. [See \@11.40](https://otexts.com/fpp3/holt-winters.html)
 
 ```{r}
 #| label: fig-expsmooth
@@ -415,7 +348,4 @@ autoplot(ts_births |> filter(between (ymdate, yearmonth("2018 Jan"), yearmonth("
        x = "Date")
 ```
 
-
-
 The 80% and 95% confidence intervals calculated using the holt-linear method are displayed in @fig-expsmooth. The ETS function utilises state-space modelling to calculate the confidence intervals.
-
