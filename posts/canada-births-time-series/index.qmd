@@ -65,6 +65,7 @@ births_df %>%
 ```
 
 A plot of the number of monthly births in Canada from January 1991 is displayed in @fig-fig1.
+
 ```{r}
 #| label: fig-fig1
 #| fig-cap: "Canadian births"
@@ -126,7 +127,7 @@ ts_births %>%
   labs(title = "Canadian monthly birth data")
 ```
 
-The ACF depicts the relationships we see in the lag plots. A slow decline in ACF values vs lag number indicates that the value from the current time point is substantially influenced by values of time points both close and distant. A repeated pattern of increased ACF values indicate a seasonal component in the series. In  @fig-acf both trend and seasonality are present. The repeated pattern in the ACF indicates a large seasonal component. As this repeated pattern peaks at 12 and 24 months, the seasonal component is yearly. The gradual reduction in ACF value is due to the trend component.
+The ACF depicts the relationships we see in the lag plots. A slow decline in ACF values vs lag number indicates that the value from the current time point is substantially influenced by values of time points both close and distant. A repeated pattern of increased ACF values indicate a seasonal component in the series. In @fig-acf both trend and seasonality are present. The repeated pattern in the ACF indicates a large seasonal component. As this repeated pattern peaks at 12 and 24 months, the seasonal component is yearly. The gradual reduction in ACF value is due to the trend component.
 
 ## Time Series Decompostion
 
@@ -176,7 +177,7 @@ ts_births %>%
 
 ```
 
-In figure @fig-diff_births the differencing by one month has not created a non-stationary plot.  However, when differencing by 12 months (@fig-12diff_births) less of the seasonality is present. 
+In figure @fig-diff_births the differencing by one month has not created a non-stationary plot. However, when differencing by 12 months (@fig-12diff_births) less of the seasonality is present.
 
 ```{r}
 #| label: fig-12diff_births
@@ -186,7 +187,6 @@ ts_births %>%
   mutate(differencing = difference(births, lag=12)) %>% 
    autoplot(differencing) + labs(subtitle = "Changes in monthly births")
 ```
-
 
 ```{r}
 #| label: fig-acfdiff
@@ -198,7 +198,7 @@ ts_births %>%
   
 ```
 
-Figure @fig-acfdiff demonstrates the non-stationary differencing effect in an ACF plot. Only lags around 12 were not greater than the significance levels (blue lines).  The slow decay of lagged values indicate that previous values heavily influence the current value.  Only those values around 12 months have little to no influence.
+Figure @fig-acfdiff demonstrates the non-stationary differencing effect in an ACF plot. Only lags around 12 were not greater than the significance levels (blue lines). The slow decay of lagged values indicate that previous values heavily influence the current value. Only those values around 12 months have little to no influence.
 
 ```{r}
 ts_births %>% 
@@ -329,7 +329,7 @@ fc %>%
 
 In @fig-models the difference between additive and multiplicative levels is small. However, the 95% prediction intervals are noticably greater for the additive model.
 
-We can also investigate the effect of dampening on the additive (or multiplicative) model. This is a common method that performs extremely well. [See @11.40](https://otexts.com/fpp3/holt-winters.html) 
+We can also investigate the effect of dampening on the additive (or multiplicative) model. This is a common method that performs extremely well. [See \@11.40](https://otexts.com/fpp3/holt-winters.html)
 
 ```{r}
 #| label: fig-expsmooth
