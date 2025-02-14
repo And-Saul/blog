@@ -4,8 +4,8 @@ author: "Andrew Saul"
 date: "2025-02-17"
 categories: [Time-series, Modelling]
 image: "image.jpg"
-editor: visual
-format:
+lightbox: true
+format: 
   html:
     code-fold: true
     code-summary: "Show the code"
