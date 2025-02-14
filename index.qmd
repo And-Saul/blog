@@ -1,6 +1,6 @@
 ---
 title: "Andrew-blog"
-listing:
+listing: 
   contents: posts
   sort: "date desc"
   type: default
