@@ -1,0 +1,392 @@
+---
+title: "Implementing Bayesian Simple Linear Regression with Stan R"
+author: "Andrew Saul"
+date: "2025-01-19"
+categories: [news, code, analysis]
+lightbox: true
+format: 
+  html:
+    code-fold: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+```
+
+
+```{r message=FALSE}
+library(tidyverse)
+library(rstan)
+library(GGally)
+library(bayesplot)
+
+```
+
+### Introduction
+
+This is an instructional blog about creating a Markov Chain Monte Carlo (MCMC) linear regression model using Stan R. In order to keep things simple I decided to use only one explanatory variable in my model. The model was based on the relationship between height and weight of adults and data was generated using R software.
+
+#### Software preparation
+
+It was essential that the Stan software package ran on my machine. Instructions how to do this are found [here](https://github.com/stan-dev/rstan/wiki/Rstan-Getting-Started). Through experience I found it necessary to ensure the latest version of R, Rtools and RStudio was loaded. This required the packages on my system being removed before the latest versions were installed.
+
+#### References
+
+Richard Mcelreath has illuminated the field of Bayesian Statistics to many through his excellent book [Statistical Rethinking](https://civil.colorado.edu/~balajir/CVEN6833/bayes-resources/RM-StatRethink-Bayes.pdf) and associated [youtube presentations of his course](https://www.youtube.com/watch?v=FdnMWdICdRs&list=PLDcUM9US4XdPz-KxHM4XHt7uUVGWWVSus).
+
+The "Coding Club" give a good step by step guide to implementing MCMC linear regression [here](https://ourcodingclub.github.io/tutorials/stan-intro/).
+
+<!-- During my statistical masters degree I found the subject of bayesian statistics complicated. However, shortly after completing the degree I discovered a gold mine of a resource about the subject, targeted at non-statisticians. The book is titled "**Statistical Rethinking**" by **Richard Mcelreath**. He has released multiple versions of his 20 week course on youtube \[https://www.youtube.com/\@rmcelreath\] that is definitely worth a look. -->
+
+<!-- This blog will run through his course section on creating a generative simple linear regression model. -->
+
+<!-- Some terminology that Mcelreath uses in his lectures is as follows (https://bookdown.org/paul/applied-causal-analysis/estimator.html): -->
+
+<!-- -   Estimand: Parameter in the population which is to be estimated in a statistical analysis -->
+
+<!-- -   Estimator: A rule for calculating an estimate of a given quantity based on observed data -->
+
+<!--     -   Function of the observations, i.e., how observations are put together -->
+
+<!-- -   Estimation: - The process of finding an estimate, or approximation, which is a value that is usable for some purpose even if input data may be incomplete, uncertain, or unstable (value derived from the best information available) -->
+
+#### Investigating Relationships
+
+According to Mcelreath, before one implements linear regression, one should :
+
+1.  State the question they are investigating. In the example provided, the question would be "What is the relationship between height and weight in the adult population?". Therefore the parameters in the population (estimands) being estimated need to be defined. Here the estimands would be the y-intercept $\alpha$ and the gradient $\beta$ parameters describing the simple linear equation.
+2.  , Propose a scientific model by sketching the causal assumptions ie. the dependencies between the variables.
+3.  Check that the scientific model produces realistic results. Any code may have bugs. By creating synthetic data where the outcomes are known the validity of the model can be checked before being implemented on real data.
+
+This blog will describe the process of creating a model for simulated height and weight measurements of adults. in R.
+
+### Generative model
+
+Weight (W) in kg can be considered as a proportion of height(H) in cm as well as being influenced by unobserved causes(U). This is summarised in the equation (@eq-Lin_Eq)
+
+$$
+W = \beta*H - U
+$$ {#eq-Lin_Eq}
+
+Given a vector of heights, the function to generate corresponding weights is as follows
+
+```{r sim_echo = T}
+
+sim_weight <- function(H,b,sd){
+  U <- rnorm(length(H), 0, sd)
+  W <- b*H +U
+}
+```
+
+According to our generative model, heights are linearly proportional to weights, with some noise due to the unobserved variables. Using the values b=0.5 and sd = 5, weights are calculated according to the above formula
+
+```{r}
+set.seed(25)
+N <- 20
+b <- 0.5
+sd <- 5
+H <- runif(N, 130, 190)
+W <- sim_weight(H, b, sd )
+HW_df <- tibble(Height = H, Weight = W)
+```
+
+The resulting plot is seen in @fig-linPlot
+
+```{r lin-plot}
+#| label: fig-linPlot
+#| fig-cap: "Plot of generated points using sim_weight function"
+ggplot(HW_df, aes(x= H, y = W))+
+  geom_point()+
+  labs(x = "Height (cm)",
+       y = "Weight (kg)")+
+  theme_bw()
+```
+
+#### Data Centring
+
+Bayesian models require "Prior" distributions associated with each parameter. A prior acts as a regulariser to the observed data. We therefore need to have a ballpark idea as to observed distribution of each parameter. By centering the data on the mean height, the y-intercept term now represents the weight of a person of mean height.
+
+```{r}
+H_bar <- mean(H)
+centred_H <- H-H_bar
+centred_range <- range(centred_H)
+HW_df <- HW_df %>% bind_cols(centred_H = centred_H)
+```
+
+```{r centered}
+#| label: fig-centred
+#| fig-cap: "Data that has been centred."
+ggplot(HW_df, aes(x= centred_H, y = W))+
+  geom_point()+
+  labs(x = paste0("Centered Height (cm, 0 = ", round(H_bar, 0)," cm)"),
+       y = "Weight (kg)")+
+  theme_bw()
+```
+
+For comparison, parameters obtained using the frequentist linear regression are displayed below.
+
+```{r lm}
+lm_fit <- lm(W~centred_H, data = HW_df)
+summary(lm_fit)
+```
+
+For the centred data, $\alpha = $ `r round(summary(lm_fit)$coefficients[1], 1)`, $\beta = $ `r round(summary(lm_fit)$coefficients[2], 2)` and $\sigma = $ `r round(sigma(lm_fit),3)`
+
+#### Priors
+
+As @fig-centred is centred, it is easier to estimate the prior distribution of $\alpha$. This parameter should have a normal distribution centred on the mean weight of an individual of `r round(H_bar, 0)` cm. Since we know the linear model of height vs weight has a positive gradient a lognormal distribution can be used for $\beta$. Mcelreath often uses an exponential model for the variance of the model. As we know that the standard deviation of simulations around the regression line is 5, we need to calculate the value of the exponential model parameter $\lambda$. We know that $\lambda$ is the inverse of its mean. On the conservative side, if we say the mean value of the variance is 10, then the value of $\lambda$ should be set at 0.1.
+
+A bayesian model for the generated data is defined below
+
+$$
+W_i\sim Normal(\mu_i, \sigma) \newline
+\mu_i = \alpha + \beta*(H_i - \bar{H})  \newline
+\alpha \sim Normal(75, 10) \newline
+\beta \sim LogNormal(0,1) \newline
+\sigma \sim Exp(0.1)
+$$
+
+One question Mcelreath asks for any model is the about the accuracy of the priors.
+
+### Prior simulations
+
+In order to answer this question we need to perform prior prediction simulations. The code for $\alpha$ and $\beta$ simulations is displayed below.
+
+```{r simulated-mu-parameters}
+n <- 1000
+a <- rnorm(n, 75, 15)
+b <- rlnorm(n, 0, 1)
+```
+
+A plot of the prior predictive simulations is displayed in @fig-priorpred.
+
+```{r prior-prediction-plot}
+#| label: fig-priorpred
+#| fig-cation: "Prior predictive simulations using values from alpha and beta distributions"
+#| 
+plot(NULL, xlim = c(-35, 35), ylim=c(-0, 150),
+     xlab= paste0("Centered Height (cm, 0 = ", round(H_bar, 0)," cm)"), 
+                  ylab = "Weight (kg)")+
+for (j in 1:50) abline(a=a[j], b=b[j])
+```
+
+The prior simulation demonstrates that at the centered value 0 $\alpha$ is centred on around 75 kg and has a range of 40 to 90 kg. The $\alpha$ prior is not so restrictive as to remove data from the generative model, but also not so loose as to permit extraordinary weight values in the model. Regarding $\beta$ there are some relatively flat lines representing little change in weight with height. There are however some steep lines indicating unrealistic dramatic weight gain with height. The $\beta$ prior could be tightened further as it appears quite weak. However, in linear regression a weak prior will have little effect on the model with increasing number of data points. The prior in effect acts as a single data point. For the sake of this exercise I will keep the priors as is.
+
+Note that prior settings are far more critical in non linear regression.
+
+#### Data
+
+Data needs to be in list form for stan models.
+
+```{r stan-data-list}
+stan_data <- list(
+  N = N,
+  x = centred_H,
+  y = W
+)
+
+```
+
+#### Model
+
+The Stan code for the model is displayed below and written to a file. Within the code includes the definitions of the data, the parameters and the model. Generated quantities represent simulated data utilising the model. For assistance in writing Stan code, an AI engine such as ChatGPT can be used.
+
+```{r stansim-script}
+write("// Stan model with simulations for simple linear regression
+
+data {
+  int<lower=0> N;          // Number of observations
+  vector[N] x;             // Predictor (height)
+  vector[N] y;             // Response (weight)
+
+}
+
+parameters {
+  real alpha;              // Intercept
+  real beta;               // Slope
+  real<lower=0> sigma;     // Standard deviation of the residuals
+}
+
+model {
+  // Priors
+  alpha ~ normal(75, 10);
+  beta ~ lognormal(0, 1);
+  sigma ~ exponential(0.1);    // Weakly informative prior for sigma
+
+  // Likelihood
+  y ~ normal( alpha + beta * x, sigma);
+}
+
+ generated quantities {
+   vector[N] ysim;        // Predicted values
+
+   for (i in 1:N) {
+     ysim[i] = normal_rng(alpha + beta * x[i], sigma);
+   }    
+  }  // posterior distribution",
+
+"stan_model1.stan")
+```
+
+The command utilised to create the model is "stan().
+
+```{r stan-fit}
+stan_model <- "stan_model1.stan"
+
+fit <- stan(file = stan_model, data = stan_data, warmup = 500, iter = 1000, chains = 4, cores = 4, thin = 1, seed = 1234)
+```
+
+Summary statistics for the parameters is displayed below
+
+```{r stan-summary}
+summary(fit, pars = c("alpha", "beta", "sigma"))$summary
+
+```
+
+The Rhat output for each parameter is close to 1. This indicates that the chains have converged.
+
+```{r traceplot}
+traceplot(fit)
+```
+
+With the overlapping of chains, the traceplots confirm the conclusion of the Rhat values ie. all chains converged. Note that this version of traceplot does not contain the warmup period.
+
+```{r posterior-extract}
+joint_post_table <- rstan::extract(fit) 
+```
+
+The joint posterior predictive distribution data is extracted utilising the "rstan::extract(fit)" code. The namespace stan:: must be used as there is a conflict with the extract function. In @fig-corr there are correlation plots between the three parameters of the model.
+
+```{r}
+#| label: fig-corr
+#| fig-cap: "Correlation plots between the parameters of the linear model"
+joint_post_table[1:3] %>% 
+  pairs()
+```
+
+Because the data is centred, there should be no correlation between $\alpha$ and $\beta$ parameters. Additionally, no correlation should exist between $\sigma$ and the other parameters. The lack of correlations is displayed in @fig-corr.
+
+```{r cred-intervals}
+ma <- mean(joint_post_table$alpha)
+mb <- mean(joint_post_table$beta)
+msig <- mean(joint_post_table$sigma)
+
+xr <- seq(-25,25,1)
+yCI <- map(xr, ~quantile(joint_post_table$alpha +joint_post_table$beta * .x, probs = c(0.05, 0.95))) %>% 
+  bind_rows()
+```
+
+```{r linedraw-plot}
+#| label: fig-postlinedraws
+#| fig-cap: "2000 draws from the posterior distribution for alpha and beta, and the mean and 90% credible interval"
+
+xr <- seq(-25,30,1)
+yCI <- map(xr, ~quantile(joint_post_table$alpha +joint_post_table$beta * .x, probs = c(0.05, 0.95))) %>% 
+  bind_rows()
+
+ggplot(stan_data %>% as_tibble)+
+  geom_point(aes(x=x, y = y))+
+  geom_abline(aes(slope = beta, intercept = alpha), alpha=0.05,
+              data = joint_post_table[1:3] %>% as_tibble())+
+  geom_abline(slope = mb, intercept = ma, color = "red", alpha = 0.5, linewidth = 1,
+              data = joint_post_table[1:3] %>% as_tibble())+
+  geom_line(data = yCI, aes(x = xr, y = `5%`, color='red'), linewidth = 1)+
+  geom_line(data = yCI, aes(x = xr, y = `95%`, color='red'), linewidth = 1)+
+  theme_bw()+
+  labs(x = "Centred Height (cm, 0 = 160 cm)",
+       y = "Weight (kg)",
+       title = "Distribution of 2000 mu samples with the mean and 90% credible interval")
+
+
+```
+
+@fig-postlinedraws displays all the posterior distribution draws for $\alpha$ and $\beta$ in the form of lines. In addition @fig-postlinedraws demonstrates the 90% credible intervals of the posterior draws that form $\mu$. The value 90% was chosen due to computational stability and relation to Type-S errors [see here](https://mc-stan.org/rstanarm/reference/posterior_interval.stanreg.html)
+
+```{r cred-interval-plot}
+#| label: fig-ci
+#| fig-cap: "90% credible intervals for the posterior line draws. "
+#  5% & 95% credible intervals
+xr <- seq(-25,25,1)
+yCI <- map(xr, ~quantile(joint_post_table$alpha +joint_post_table$beta * .x, probs = c(0.05, 0.95))) %>% 
+  bind_rows()
+
+as_tibble(stan_data) %>% 
+ggplot(aes(x=centred_H, y=W))+
+  geom_point()+
+  geom_abline(slope = mb, intercept = ma, color = "black")+
+  geom_line(data = yCI, aes(x = xr, y = `5%`, color='red'))+
+  geom_line(data = yCI, aes(x = xr, y = `95%`, color='red'))+
+  guides(color = "none")+
+  theme_bw()+
+  labs(x = "Centred Height (cm, 0 = 160 cm)",
+       title = "5% & 95% Credible Intervals (red) and mean regression line \nobtained from draws of alpha and beta posterior distributions"
+       )
+```
+
+```{r pairs-plot}
+#| label: fig-pairs
+#| fig-cap: "Pairs Plot. As data is centred, there should not be any correlation between alpha and beta."
+pairs(joint_post_table[1:3])
+```
+
+A pairs plot of the parameters is seen in @fig-pairs. One can see that no correlation exists between $\alpha$ and $\beta$. This is expected when the explanatory variable is centred.
+
+#### Parameter summaries
+
+```{r}
+#| label: fig-margdist
+#| fig-cap: "The peak of each marginal distribution matches the Maximum Likelihood Estimation (MLE) from the frequentist model"
+par(mfrow = c(1,3))
+
+plot(density(joint_post_table$alpha), main = "Alpha")
+abline(v =summary(lm_fit)$coefficients[1], col = 4, lty = 2)
+
+plot(density(joint_post_table$beta), main = "Beta")
+abline(v = summary(lm_fit)$coefficients[2], col = 4, lty = 2)
+
+plot(density(joint_post_table$sigma), main = "Sigma")
+abline(v = sigma(lm_fit), col = 4, lty = 2)
+
+
+```
+
+One can see from @fig-margdist that the mean marginal posterior distribution of each parameter matches its Maximum Likelihood Estimation (MLE) in the frequentist model.
+
+Useful functions to plot the marginal parameter distributions and histograms is stan_dens() and stan_hist() respectively
+
+```{r}
+
+stan_dens(fit, pars = c("alpha", "beta", "sigma"))
+stan_hist(fit, pars = c("alpha", "beta", "sigma"))
+```
+
+In @fig-ci90, the mean marginal parameter estimates are displayed with their associated 90% credible intervals. It is difficult to see the credible intervals, especially for $\beta$ and $\sigma$, because the scale of the parameters is different. This plot is useful if all points are scaled.
+
+```{r}
+#| label: fig-ci90
+#| fig-cap: "Mean parameter estimates with their 90% Credible Intervals"
+plot(fit, , pars = c("alpha", "beta", "sigma"), show_density = FALSE, ci_level = 0.5, outer_level = 0.90, fill_color = "salmon")
+```
+
+#### Extracting the y Predictions
+
+```{r}
+y_rep <- as.matrix(fit, pars = "ysim")
+dim(y_rep)
+```
+
+In @fig-overlay, each light-blue line is a density plot created by simulating y values from a single draw of parameters from the posterior density distribution for each of the twenty x value data points. Five hundred iterations of simulations (light-blue density plots) are displayed, overlay-ed by the density plot for the y value datapoints (dark blue line). It is clear that the density plot of the observed values is contained well-within the range of density plots generated from the posterior distribution.
+
+```{r}
+#| label: fig-overlay
+#| fig-cap: "density distribution of simulated y values using parameter values drawn from the posterior denstiy distribution"
+ppc_dens_overlay(W, y_rep[1:500, ])
+```
+
+The mean of each distribution can be plotted and compared to the mean of the observed values, as seen in @fig-meanhist
+
+```{r}
+#| label: fig-meanhist
+#| fig-cap: "Histogram of mean value for each simulated distribution (y_rep) compared to the mean value of the generated distribution (y)"
+ppc_stat(y = W, yrep = y_rep, stat = "mean")
+```

@@ -1,0 +1,109 @@
+---
+title: "R Patchwork hacks I found useful"
+author: "Andrew Saul"
+date: "2025-02-04"
+categories: [Patchwork]
+image: "image.jpg"
+---
+
+```{r include = FALSE}
+library(tidyverse) # includes ggplot containing diamonds dataset
+library(patchwork)
+```
+
+### Introduction
+
+Presented are a few hacks using Patchwork that took me some time to discover.
+
+Below is code that creates two categorical plots, each having the same ordered x and y axis labels. The task is to create a combined plot that uses only one set of y axis labels and legend. Both plots are to share the x-axis title and image caption.
+
+#### Plot Objects
+
+```{r}
+# creates a single plot depdendent on the "cut"  variable
+plot_func <- function(var){
+  diamonds %>% 
+    filter(cut == var) %>% 
+    ggplot(aes(x = clarity, y = price, fill = color))+
+    geom_col(position = "fill")+
+    coord_flip()+
+    labs(title = var)
+}
+
+#saves the plots to a list object
+plots <-   map(c("Ideal", "Fair"), plot_func)
+```
+
+#### Display
+
+##### Display the two plots side by side
+
+```{r}
+plots[[1]]+plots[[2]]
+```
+
+##### Use a common legend
+
+```{r}
+plots[[1]]+plots[[2]] + plot_layout(guides = "collect")
+```
+
+##### Use the same axes
+
+```{r}
+plots[[1]]+plots[[2]] + plot_layout(guides = "collect", axes = "collect")
+```
+
+##### Annotations
+
+Use "plot_annotations" function to give the patchwork plot a common annotation. Utilise the caption option in the plot_annotation function
+
+```{r}
+(plots[[1]]+plots[[2]]) + 
+  plot_layout(guides = "collect", axes = "collect")+
+  plot_annotation(caption = "This is the common caption for both plots")
+```
+
+#### Change name of x-axis title
+
+If the title of the x-axis needs to be replaced, I found the above process didn't work. Instead I removed the x-axis title from both plots with a NULL value in the plot function. At the bottom of both plots I printed the x-axis title. Please note that this centered x-axis title is below the normal level of the x-axis title. <br> The first action undertaken was to create a function where the x-axis title was converted to an empty string. Because the categories of the column geom were flipped with *coord_flip*, the x-axis features in the plots are infact y-axis features. As such the **y** labs string was given a **NULL** value.
+
+```{r}
+# creates a single plot depdendent on the "cut"  variable
+plot_func_xaxis <- function(var){
+  diamonds %>% 
+    filter(cut == var) %>% 
+    ggplot(aes(x = clarity, y = price, fill = color))+
+    geom_col(position = "fill")+
+    coord_flip()+
+    labs(title = var,
+         y=NULL)
+}
+```
+
+The two plots were saved into a list object
+
+```{r}
+plot_change_xaxis <-   map(c("Ideal", "Fair"), plot_func_xaxis)
+```
+
+The plot_layout function was invoked so that only one legend and one set of y-axis variables were displayed.
+
+```{r}
+change_xaxis_plots <- 
+(plot_change_xaxis[[1]]|plot_change_xaxis[[2]])+
+  plot_layout(guides = "collect", axes = "collect")
+```
+
+Finally, in order to display a new x-axis title, the *wrap_elements* function was invoked and the tag attribute in the labs function was given the new x-axis title. By default, the tag element is displayed in the top_left corner of the plot. The plot.tag attributes invoked within the *theme* function can change the appearance of the tag string
+
+```{r}
+wrap_elements(panel = change_xaxis_plots)+
+  labs(tag = "Proportion of total price")+
+  theme(
+    plot.tag = element_text(size = rel(1.5)),
+    plot.tag.position = "bottom"
+  )
+```
+
+I hope the reader has found this code useful.

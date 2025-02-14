@@ -1,0 +1,421 @@
+---
+title: "Canadian Births Time Series Analysis"
+author: "Andrew Saul"
+date: "2025-02-17"
+categories: [Time-series, Modelling]
+image: "image.jpg"
+editor: visual
+format:
+  html:
+    code-fold: true
+    code-summary: "Show the code"
+    fig-numbering: true
+    tbl-cap-location: top
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = T, warning = F, message = F)
+
+```
+
+```{r echo = F}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load(tidyverse,
+               lubridate,
+               fpp3,
+               fable)
+
+```
+
+```{r}
+births_df <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/main/data/2024/2024-01-09/canada_births_1991_2022.csv')
+```
+
+
+
+## Introduction
+
+This work was inspired from the Tidy Tuesday session titled ["Canadian NHL Player Birth Dates"](https://github.com/rfordatascience/tidytuesday/blob/main/data/2024/2024-01-09/readme.md). I utilised the R package [fpp3](https://otexts.com/fpp3/) to analyse the data.
+
+### Should births or birth rates be investigated?
+
+The choice of variable is dependent upon the question being asked. A search using ChatGPT on this question revealed the following:
+
+Live births are the measure of absolute organic (excluding migration) growth per measurement period that contribute to the population size. This value is utilised for economic and resource planning, such as determining demand for resources like healthcare, education, housing, and social services.
+
+Live birth rate is the number of live births per 1,000 individuals in the population annually. It can be used for comparisons between countries or regions, regardless of population size. Birth rates are insightful for long-term analysis, especially in aging societies or declining populations
+
+For the purposes of this blog I investigated births only
+
+### Goals of blog
+
+The goals of this blog were two-fold. Primarily I was interested in developing code to reveal birth data insights. Secondly, I was interested in revealing components of the time series.
+
+## Birth data
+
+In order to examine time-series data with the fpp3 package, the tibble data needs to be converted into a [**tsibble** object.](https://otexts.com/fpp3/tsibbles.html).
+
+
+
+```{r}
+# creation of tsibble object
+ts_births <- 
+births_df %>% 
+  # create new column as year-month character - then convert it to a mth type using yearmonth function
+  mutate(ymdate = yearmonth(paste(year, month))) %>% 
+  as_tsibble(index = ymdate)
+```
+
+
+
+A plot of the number of monthly births in Canada from January 1991 is displayed in @fig-fig1.
+
+
+```{r}
+#| label: fig-fig1
+#| fig-cap: "Canadian births"
+
+ts_births %>% 
+  autoplot(births)+
+  labs(x = "Year/Month",
+       y = "Births",
+       title = "Canadian Registered Births")
+```
+
+
+
+### Seasonality
+
+We can investigate the seasonality of the plot using the ggseason function
+
+
+
+```{r}
+#| label: fig-fig2
+#| fig-cap: "Seasonality separated into years"
+
+ts_births %>% 
+  gg_season(births, labels = "both")
+```
+
+
+
+In @fig-fig2, each year is plotted separately. However, with over 30 lines this plot is difficult to interpret. Instead, seasonality can be plotted by facetting the ggplot into months.
+
+
+
+```{r}
+#| label: fig-fig3
+#| fig-cap: "Seasonality: trends observed for each month"
+ts_births %>% 
+  gg_subseries(births, labels = "both")
+```
+
+
+
+In @fig-fig3 it appears that most births occur in July (summer) and the fewest births occur in February (winter). One can also see from this plot that births peaked at the beginning of the time series and decreased to a minimum around 2001. From 2007 until 2021 the birth rate stabilised at a relatively high level, but fell once again for the final recorded year of 2022.
+
+## Correlations
+
+An assumption of time series modelling is that the previous time point(s) influence the current time point.
+
+
+
+```{r}
+#| label: fig-lag
+#| fig-cap: "Lag in months"
+ts_births %>% 
+  gg_lag(births, lag = 1:12)+
+  labs(x = "lag(birth, y_t)", y = "lag(birth, y_t-k")
+  
+```
+
+
+
+@fig-lag represents the correlation between time points separated by months, depicted by the lag number. We can see that there is a strong, maximum correlation between time points separated by 12 months. This indicates yearly seasonal variation.
+
+### Autocorrelation Function (ACF)
+
+
+
+```{r}
+#| label: fig-acf
+#| fig-cap: "Correlogram"
+
+ts_births %>% 
+  ACF(births) %>% 
+  autoplot() +
+  labs(title = "Canadian monthly birth data")
+```
+
+
+
+The ACF depicts the relationships we see in the lag plots. A slow decline in ACF values vs lag number indicates that the value from the current time point is substantially influenced by values of time points both close and distant. A repeated pattern of increased ACF values indicate a seasonal component in the series. In  @fig-acf both trend and seasonality are present. The repeated pattern in the ACF indicates a large seasonal component. As this repeated pattern peaks at 12 and 24 months, the seasonal component is yearly. The gradual reduction in ACF value is due to the trend component.
+
+## Time Series Decompostion
+
+### Transformations
+
+When viewing @fig-fig1, the amount of variation should be consistant. For instance, the seasonal variation amplitude may increase by a constant factor over time. In order to maintain consistent variation, a transformation may be required.
+
+
+
+```{r}
+#| label: fig-transformation
+#| fig-cap: "Transformed Canadian birth time trend"
+lambda <- 
+  ts_births %>% 
+  features(births,features = "guerrero") %>% 
+  pull(lambda_guerrero)
+
+ts_births_bc <- 
+  ts_births %>% 
+  mutate(BC_births = box_cox(births, lambda))
+
+ts_births_bc %>% 
+  autoplot(BC_births)+
+    labs(y = "",
+       title = (paste0(
+         "Transformed gas production with \\lambda = ",
+         round(lambda,2))))
+
+
+```
+
+
+
+For the population data, a box-cox transformation value was calculated to be `r lambda`. However, the variation seen in @fig-fig-transformation appeared similar to the non-transformed data in @fig-fig1, so therefore data transformation was not implemented for further analysis.
+
+### ARIMA
+
+ARIMA models aim to describe the autocorrelations in the data
+
+#### Stage 1
+
+Investigate the differencing between data points. The code below plots the difference between successive time points ie $y_t$ and $y_{t-1}$.
+
+
+
+```{r}
+#| label: fig-diff_births
+#| fig-cap:  "Differencing by one month"
+
+ts_births %>% 
+  mutate(differencing = difference(births, lag=12)) %>% 
+   autoplot(differencing) + labs(subtitle = "Changes in monthly births")
+
+```
+
+
+
+In figure @fig-diff_births the differencing by one month has not created a non-stationary plot.  However, when differencing by 12 months (@fig-12diff_births) less of the seasonality is present. 
+
+
+
+```{r}
+#| label: fig-12diff_births
+#| fig-cap:  "Differencing by twelve months"
+
+ts_births %>% 
+  mutate(differencing = difference(births, lag=12)) %>% 
+   autoplot(differencing) + labs(subtitle = "Changes in monthly births")
+```
+
+```{r}
+#| label: fig-acfdiff
+#| fig-cap: "ACF plot of twelve month differencing"
+
+ts_births %>% 
+  ACF(difference(births, lag=12)) %>% 
+  autoplot() + labs(subtitle = "Changes in monthly births")
+  
+```
+
+
+
+Figure @fig-acfdiff demonstrates the non-stationary differencing effect in an ACF plot. Only lags around 12 were not greater than the significance levels (blue lines).  The slow decay of lagged values indicate that previous values heavily influence the current value.  Only those values around 12 months have little to no influence.
+
+
+
+```{r}
+ts_births %>% 
+  gg_tsdisplay(difference(births), plot_type='partial')
+```
+
+
+
+### STL decomposition (Seasonal and Trend decomposition using LOESS)
+
+STL decomposition involves splitting up the data into trend/cyclical, seasonal and residual components. If it has been ascertained that the decomposition is multiplicative then components will need to be transformed. The Canadian population data appears additive and no transformation is deemed necessary.
+
+
+
+```{r}
+ dcmp <- 
+  ts_births_bc %>% 
+  model(stl = STL(births))
+```
+
+```{r}
+#| label: fig-trendoverlay
+#| fig-cap: "Trend pattern overlaying the data"
+components(dcmp) |>
+  as_tsibble() |>
+  autoplot(births, colour="gray") +
+  geom_line(aes(y=trend), colour = "#D55E00") +
+  labs(
+    y = "Births",
+    title = "Canadian Birth Data"
+  )
+```
+
+
+
+@fig-trendoverlay demonstrates the trend component overlaying the complete plot.
+
+
+
+```{r}
+#| label: fig-stl
+#| fig-cap: "STL decomposition"
+#| 
+ ts_births_bc %>% 
+  model(stl = STL(births, robust = F)) %>% 
+  components() %>% autoplot()
+```
+
+
+
+@fig-stl is a representation of the plot divided into the three STL components. The trend component is maximum at the beginning of the trace, then decreases to its minimum, finally regaining most of its gains with a period of stability before decreasing during the covid period. It is noteworthy that the seasonal component can change slowly over time. The bars on the side of each plots have the same length.
+
+## Forecasting
+
+Baseline (simple) forecasting methods include the mean, naive and seasonal naive methods. These methods often act as benchmarks to more complicated techniques
+
+
+
+```{r}
+#| label: fig-benchmark
+#| fig-cap: "Benchmark forecast methods"
+
+# set training data before 2018
+train <- 
+  ts_births %>% 
+  filter(year <2018)
+
+#set period for forecast data
+pred_pop <- 
+  ts_births %>% 
+  filter(year >=2018)
+
+#fit data
+pop_fit <- 
+  train %>% 
+  model(
+    Mean = MEAN(births),
+    `Naïve` = NAIVE(births),
+    `Seasonal naïve` = SNAIVE(births),
+    Drift = NAIVE(births ~ drift())
+  )
+
+# produce forecasts for period 2019-2022
+pop_2019_22 <- 
+  pop_fit %>% 
+  forecast(new_data = pred_pop)
+
+# plot data with forecasts
+pop_2019_22 %>% 
+  autoplot(ts_births %>% filter(year >=2014), level = NULL)+
+  autolayer(pred_pop, births, color = "black")
+```
+
+
+
+@fig-benchmark demonstrates four methods of benchmark forecasting. The mean method forecasts all future values as the average of all historical values. The Naive method forecasts all future values as the last observed value. The naive-seasonal method forecasts each new value to be equal to the last observed value from the same season. The drift method allows changes to increase or decrease in time, where the gradient is set as the average change seen in the historical data. In this figure the last four years were forecasted using the four methods.
+
+## Exponential Smoothing
+
+Historically this technique has often been used for forecasting. Forecasts are produced by weighting past observations in an exponential manner. That is, the more recent the observation, the greater the weighting towards the forecast. A list of exponential smoothing factors are noted in chapter 8.4 of the fpp3 webbook.
+
+#### Holt-Winters method
+
+Holt-Winters method accounts not only for trend but also seasonality. The method comprises the forecasting equation, as well as three smoothing equations accounting for the level, trend and seasonality of the data.
+
+The two variations of this method relate to the seasonal component. If the seasonal variations are constant though the series then the additive method is chosen. If however the variations are changing proportional to the level of the series then the multiplicative method is chosen.
+
+Code for the two seasonality models are shown below. A comparison of the fits for both models are compared.
+
+
+
+```{r}
+#| label: tbl-esacc
+#| tbl-cap: Comparison of Additive and Multiplicative HW methods
+
+fit <- 
+  ts_births %>% 
+  model(
+    additive = ETS(births ~ error("A") + trend("A") + season("A")),
+    multiplicative = ETS(births ~ error("M") + trend("A") + season("M"))
+    )
+
+fc <- fit %>% forecast() 
+```
+
+
+
+#### Fits of additive and multiplicative HW models
+
+
+
+```{r}
+augment(fit)
+
+tidy(fit) %>% 
+  spread(.model, estimate)
+```
+
+
+
+Note that for the additive model, all the seasonal components add to 0. For the multiplicative model, all the seasonal components add to 1.
+
+
+
+```{r}
+#| label: fig-models
+#| fig-cap: "Comparison between the additive and multiplicative models"
+fc %>% 
+  autoplot(filter(ts_births, ymdate >= yearmonth("2018 Jan")), level = 95)
+
+```
+
+
+
+In @fig-models the difference between additive and multiplicative levels is small. However, the 95% prediction intervals are noticably greater for the additive model.
+
+We can also investigate the effect of dampening on the additive (or multiplicative) model. This is a common method that performs extremely well. [See @11.40](https://otexts.com/fpp3/holt-winters.html) 
+
+
+
+```{r}
+#| label: fig-expsmooth
+#| fig-cap: "Seasonal Additive Exponential Smoothing with Trend Dampening"
+
+
+ts_births %>% 
+  filter(year<2019) %>% 
+  model(
+    hl = ETS(births ~ error("A") + trend("Ad") + season("A"))
+  ) %>% 
+  forecast(h = "48 months") %>% 
+autoplot(ts_births |> filter(between (ymdate, yearmonth("2018 Jan"), yearmonth("2022 Dec"))))+
+  labs(title = str_wrap("80% & 95% prediction intervals for the dampend additive model on Canadian population for 2019-2022.",80),
+       subtitle = c("The black line represents actual population values. The blue line represents the mean forecast."),
+       x = "Date")
+```
+
+
+
+The 80% and 95% confidence intervals calculated using the holt-linear method are displayed in @fig-expsmooth. The ETS function utilises state-space modelling to calculate the confidence intervals.
+
