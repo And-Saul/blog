@@ -2,17 +2,18 @@
 title: "Implementing Bayesian Simple Linear Regression with Stan R"
 author: "Andrew Saul"
 date: "2025-01-19"
-categories: [news, code, analysis]
-lightbox: true
-format: 
-  html:
-    code-fold: true
+categories: [Bayesian, modelling]
+format:    
+  html:     
+    code-fold: true     
+    code-summary: "Show the code"     
+    fig-numbering: true     
+    tbl-cap-location: top 
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(warning=FALSE)
 ```
-
 
 ```{r message=FALSE}
 library(tidyverse)
@@ -130,7 +131,7 @@ lm_fit <- lm(W~centred_H, data = HW_df)
 summary(lm_fit)
 ```
 
-For the centred data, $\alpha = $ `r round(summary(lm_fit)$coefficients[1], 1)`, $\beta = $ `r round(summary(lm_fit)$coefficients[2], 2)` and $\sigma = $ `r round(sigma(lm_fit),3)`
+For the centred data, \$\alpha = \$ `r round(summary(lm_fit)$coefficients[1], 1)`, \$\beta = \$ `r round(summary(lm_fit)$coefficients[2], 2)` and \$\sigma = \$ `r round(sigma(lm_fit),3)`
 
 #### Priors
 

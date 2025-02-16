@@ -195,6 +195,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="plot-objects" class="level4">
 <h4 class="anchored" data-anchor-id="plot-objects">Plot Objects</h4>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co"># creates a single plot depdendent on the "cut"  variable</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>plot_func <span class="ot">&lt;-</span> <span class="cf">function</span>(var){</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  diamonds <span class="sc">%&gt;%</span> </span>
@@ -207,6 +209,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="co">#saves the plots to a list object</span></span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>plots <span class="ot">&lt;-</span>   <span class="fu">map</span>(<span class="fu">c</span>(<span class="st">"Ideal"</span>, <span class="st">"Fair"</span>), plot_func)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 </section>
 <section id="display" class="level4">
@@ -214,7 +217,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="display-the-two-plots-side-by-side" class="level5">
 <h5 class="anchored" data-anchor-id="display-the-two-plots-side-by-side">Display the two plots side by side</h5>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>plots[[<span class="dv">1</span>]]<span class="sc">+</span>plots[[<span class="dv">2</span>]]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -227,7 +233,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="use-a-common-legend" class="level5">
 <h5 class="anchored" data-anchor-id="use-a-common-legend">Use a common legend</h5>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>plots[[<span class="dv">1</span>]]<span class="sc">+</span>plots[[<span class="dv">2</span>]] <span class="sc">+</span> <span class="fu">plot_layout</span>(<span class="at">guides =</span> <span class="st">"collect"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -240,7 +249,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="use-the-same-axes" class="level5">
 <h5 class="anchored" data-anchor-id="use-the-same-axes">Use the same axes</h5>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>plots[[<span class="dv">1</span>]]<span class="sc">+</span>plots[[<span class="dv">2</span>]] <span class="sc">+</span> <span class="fu">plot_layout</span>(<span class="at">guides =</span> <span class="st">"collect"</span>, <span class="at">axes =</span> <span class="st">"collect"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -254,9 +266,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h5 class="anchored" data-anchor-id="annotations">Annotations</h5>
 <p>Use “plot_annotations” function to give the patchwork plot a common annotation. Utilise the caption option in the plot_annotation function</p>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>(plots[[<span class="dv">1</span>]]<span class="sc">+</span>plots[[<span class="dv">2</span>]]) <span class="sc">+</span> </span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(<span class="at">guides =</span> <span class="st">"collect"</span>, <span class="at">axes =</span> <span class="st">"collect"</span>)<span class="sc">+</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_annotation</span>(<span class="at">caption =</span> <span class="st">"This is the common caption for both plots"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -271,6 +286,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h4 class="anchored" data-anchor-id="change-name-of-x-axis-title">Change name of x-axis title</h4>
 <p>If the title of the x-axis needs to be replaced, I found the above process didn’t work. Instead I removed the x-axis title from both plots with a NULL value in the plot function. At the bottom of both plots I printed the x-axis title. Please note that this centered x-axis title is below the normal level of the x-axis title. <br> The first action undertaken was to create a function where the x-axis title was converted to an empty string. Because the categories of the column geom were flipped with <em>coord_flip</em>, the x-axis features in the plots are infact y-axis features. As such the <strong>y</strong> labs string was given a <strong>NULL</strong> value.</p>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb6"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co"># creates a single plot depdendent on the "cut"  variable</span></span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>plot_func_xaxis <span class="ot">&lt;-</span> <span class="cf">function</span>(var){</span>
 <span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  diamonds <span class="sc">%&gt;%</span> </span>
@@ -281,25 +298,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">labs</span>(<span class="at">title =</span> var,</span>
 <span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>         <span class="at">y=</span><span class="cn">NULL</span>)</span>
 <span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>}</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 <p>The two plots were saved into a list object</p>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>plot_change_xaxis <span class="ot">&lt;-</span>   <span class="fu">map</span>(<span class="fu">c</span>(<span class="st">"Ideal"</span>, <span class="st">"Fair"</span>), plot_func_xaxis)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 <p>The plot_layout function was invoked so that only one legend and one set of y-axis variables were displayed.</p>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb8"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>change_xaxis_plots <span class="ot">&lt;-</span> </span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>(plot_change_xaxis[[<span class="dv">1</span>]]<span class="sc">|</span>plot_change_xaxis[[<span class="dv">2</span>]])<span class="sc">+</span></span>
 <span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">plot_layout</span>(<span class="at">guides =</span> <span class="st">"collect"</span>, <span class="at">axes =</span> <span class="st">"collect"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 </div>
 <p>Finally, in order to display a new x-axis title, the <em>wrap_elements</em> function was invoked and the tag attribute in the labs function was given the new x-axis title. By default, the tag element is displayed in the top_left corner of the plot. The plot.tag attributes invoked within the <em>theme</em> function can change the appearance of the tag string</p>
 <div class="cell">
+<details class="code-fold">
+<summary>Show the code</summary>
 <div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">wrap_elements</span>(<span class="at">panel =</span> change_xaxis_plots)<span class="sc">+</span></span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">tag =</span> <span class="st">"Proportion of total price"</span>)<span class="sc">+</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme</span>(</span>
 <span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.tag =</span> <span class="fu">element_text</span>(<span class="at">size =</span> <span class="fu">rel</span>(<span class="fl">1.5</span>)),</span>
 <span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">plot.tag.position =</span> <span class="st">"bottom"</span></span>
 <span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</details>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
