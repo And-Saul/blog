@@ -1,0 +1,202 @@
+---
+title: "Introduction to R User-defined functions" 
+author: "Andrew Saul" 
+date: "2025-02-17"
+categories: [R Tutorial] 
+image: "image.png" 
+lightbox: true 
+format:    
+  html:     
+    fig-numbering: true     
+    tbl-cap-location: top 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE)
+```
+
+# Two types of functions in R
+
+-   Built in functions
+-   User-defined functions
+
+**Functions were created in the epoch before tidyverse** - Functions designed for base R
+
+# User defined functions
+
+## Why (see R4DS <https://r4ds.hadley.nz/functions.html>, <https://adv-r.hadley.nz/functions.html>)?
+
+-   You can give a function an evocative name that makes your code easier to understand.
+
+-   As requirements change, you only need to update code in one place, instead of many.
+
+-   You eliminate the chance of making incidental mistakes when you copy and paste (i.e. updating a variable name in one place, but not in another).
+
+## Components
+
+A user-defined function has four components.
+
+-   name
+
+-   body : code inside the function
+
+-   formals() : the names of variables that are used within the body of the function that take the value of arguments from the (global) environment. Parameters are typed in the function definition, located within the parentheses ie. function(param1, param2, ...)
+
+-   Environment : Where the calculations are performed.
+
+```{r eval=F}
+function_name <- function(parameter1, parameter2, ...) {
+  BODY
+}
+
+# example : function calculating area of circle
+area_of_circle <- function(radius){
+  {pi}*radius^2
+}
+
+# calling function
+area_of_circle() 
+# Error - no argument declared for the parameter radius. A parameter requires an argument
+
+area_of_circle(radius = 4) # function will run because the radius parameter is given the argument 4 in the calling function.
+
+#within the calling function, the parameter need not be declared, but the order of arguments for the parameters becomes important
+area_of_circle(4)
+
+# To avoid an error if no argument supplied in the calling function, a default argument of NULL can be supplied in the function declaration.
+area_of_circle <- function(radius = NULL){
+  
+  return({pi}*radius^2) # {pi} = value of pi ie .~3.142
+  
+} 
+
+# Argument not required in calling function. default value = NULL
+area_of_circle()
+
+
+# r object given value in global environment.  Then the parameter radius can be given the argument r in parameter declaration
+r <- 4
+area_of_circle(radius = r)
+area_of_circle(r)
+```
+
+## parameters
+
+Best to name variables within a function differently from objects in the Global environment. Avoids confusion. Using parameters allows a range of variables to be utilised in the function (at separate executions).
+
+```{r}
+area_of_circle <- function(radius = NULL){
+
+  return({pi}*radius^2) # {pi} = value of pi ie .~3.142
+  
+} 
+
+r <- 4
+y <- 10
+area_of_circle(radius = r)
+area_of_circle(radius = y)
+```
+
+If parameters are not declared in the function then the variables must exist within the function (local variables) or (typically) in the global environment
+
+```{r}
+#--Without parameter declaration--
+area_of_circle <- function(){
+  {pi}*radius^2
+}
+
+radius <- 100
+area_of_circle()
+radius <- 50
+area_of_circle()
+
+```
+
+Multiple Inputs
+
+```{r}
+times_tables <- function(vector, constant){
+  return(constant*vector)
+}
+
+times_tables(vector = 1:12, constant = 6)
+```
+
+## Outputs
+
+-   Output of function must be implicitly or explicitly returned. If explicitly returned, function does not continue after return() command.
+-   If multiple outputs are required, these must be returned as a list
+
+```{r}
+# Implicit 
+area_of_circle <- function(radius){
+  {pi}*radius^2
+}
+
+#Explicit
+area_of_circle <- function(radius){
+  return({pi}*radius^2)
+}
+
+# Can terminate function using the <return> statement
+area_of_circle <- function(radius = NULL){
+  
+  if(is.null(radius)){
+    return(message("No radius value was entered"))
+  }
+  
+  return({pi}*radius^2) # {pi} = value of pi ie .~3.142
+  
+} 
+
+#Multiple outputs
+circle_measurements <- function(radius){
+  area <- {pi}*radius^2
+  diameter <- 2*radius
+  
+  list(Area = area, Diameter = diameter)
+}
+
+circle_measurements(4)
+```
+
+# Environments
+
+A function will perform its calculations in a separate environment from that which it is stored (usually the Global Environment).
+
+values of variables are imported into the separate functional environment from the environment that the functional object is stored (usually the Global environment),
+
+A variable that is found in the body of the function will take precedence over arguments found in the function declaration or variables found in the parent environment (usually the Global environment).
+
+```{r}
+rad <- 60
+area_of_circle <- function(){
+  rad <- 1
+  {pi}*rad^2
+}
+area_of_circle() # rad has value of 1 
+
+radius <- 100
+area_of_circle <- function(rad){
+  rad <- 1
+  {pi}*rad^2
+}
+
+area_of_circle(rad=radius) # rad has value 1
+```
+
+A argument in the function declaration will take precedence over a variable located in the parent (usually the Global environment) environment.
+
+```{r}
+
+radius <- 5
+area_of_circle <- function(radius){
+  {pi}*radius^2
+}
+#  function argument overrides object in global environment
+area_of_circle(radius = 100)
+```
+
+After the function is completed, its environment and its contents are lost.
+
+Note : the parent environment cannot see the contents (values/functions) within a functional object.

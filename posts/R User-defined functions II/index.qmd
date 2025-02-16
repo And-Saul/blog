@@ -1,0 +1,238 @@
+---
+title: "R User-defined functions employing purrr"
+date: "2025-02-17"
+categories: [R Tutorial] 
+image: "image.png" 
+lightbox: true 
+format:    
+  html:     
+    fig-numbering: true     
+    tbl-cap-location: top 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(purrr)
+```
+
+# Functions in the tidyverse
+
+**Functions were created in the epoch before tidyverse**. Hacks are required to successfully use tibbles and dataframes within functions. Problems occur because functions assume all data is contained within vectors.
+
+**Examples using tibbles within functions**
+
+Create tibble containing one independent variable (ColA), and several dependent variables
+
+```{r}
+tib <- tibble(
+                ColA = 1:10,
+                ColB = ColA + rnorm(10),              # 1:1 relationship
+                ColC = ColA + 15 + rnorm(10),          # add 15 
+                ColD = ColA^2 + rnorm(10),            # Square Col A   
+                ColE = 2^ColA + rnorm(10, 0, 30)      # 2^ColA
+                )
+
+titlenames <- c("Title B", "Title C", "Title D", "Title E")
+```
+
+The plot of ColA vs ColB
+
+```{r}
+tib %>% 
+  ggplot(aes(x=ColA, y=ColB))+
+  geom_point()+
+  ggtitle(titlenames[1])
+```
+
+Copy and paste the above code multiple times, changing the appropriate variables (eg. y, ggtitle).
+
+Copy and pasting becomes messy and prone to errors (may forget to change a variable!)
+
+Better solution is to create a user-defined function.
+
+```{r eval=F}
+# won't work!
+create_plot_bug <- function(df = tib,
+                            xvar = ColA,
+                            yvar = ColB, 
+                            titlename = titlenames[1]) {
+  df %>% 
+  ggplot(aes(x=xvar, y=yvar))+
+  geom_point()+
+  ggtitle(titlename)
+}
+
+try(create_plot_bug(df=tib, yvar= ColB, titlename = "Title B"))
+```
+
+Error! ColA and ColB are objects not found in the Global Environment (environment where function was called)
+
+```{r}
+create_plot <- function(df = tib,
+                        xvar = ColA,
+                        yvar = ColB, 
+                        titlename = titlenames[1]) {
+  df %>% 
+  ggplot(aes(x={{xvar}}, y={{yvar}}))+
+  geom_point()+
+  ggtitle(titlename)
+}
+
+p1 <- create_plot(df=tib, yvar= ColB, titlename = titlenames[1])
+p2 <- create_plot(df=tib, yvar = ColC, titlename = titlenames[2])
+p3 <- create_plot(df=tib, yvar = ColD, titlename = titlenames[3])
+p4 <- create_plot(df=tib, yvar = ColE, titlename = titlenames[4])
+
+list(p1,p2,p3,p4)
+```
+
+The above solution works, but again is cumbersome and human error may result.
+
+Use map function to automatically generate and store above plots
+
+```{r}
+# create vector with tibble columns
+yvars <- try(c(ColB, ColC, ColD, ColE)) # !!! Does not work
+
+yvars <- c("ColB", "ColC", "ColD", "ColE")
+
+```
+
+```{r}
+# try with quoted column names
+#tib_single_col <- tib["ColB"]
+
+vector_colB <- tib[["ColB"]]
+```
+
+The Holy Grail !!!
+
+```{r}
+# Does the function work using one set of values?
+create_plot_quotes1 <- function(df = tib,
+                               xvar = "ColA",
+                               yvar = "ColB",
+                               titlename = titlenames[1]) {
+  
+  df %>%
+    ggplot(aes(x=.data[[xvar]], y=.data[[yvar]]))+
+    geom_point()+
+    ggtitle(titlename)
+}
+
+create_plot_quotes1()
+# .data is pronoun specific to dplyr (tidy evaluation) & rlang.
+# It represents the most updated version of the tibble
+#eg. mtcars %>%
+        # mutate(
+        # cyl2 = cyl + 1,
+        # am3 = .data[["cyl2"]] + 10
+        # ) 
+# works!
+
+# -----------  OR ----------------------------------------------
+create_plot_quotes2 <- function(df = tib,
+                               xvar = ColA,
+                               yvar = "ColB",
+                               titlename = titlenames[1]) {
+  plot_obj <- 
+    df %>%
+    ggplot(aes(x={{xvar}}, y=.data[[yvar]]))+
+    geom_point()+
+    ggtitle(titlename)
+  
+  assign(paste0("plot_", yvar), plot_obj, envir = .GlobalEnv)
+}
+
+create_plot_quotes2()
+```
+
+Use map function
+
+```{r}
+constant_title_list <-
+  map(yvars, \(x) create_plot_quotes2(df=tib,
+                                   xvar = ColA,
+                                   yvar = x,
+                                   titlename = "The title of the plot is constant"))
+
+try(constant_title_list)
+```
+
+Use map2 function
+
+```{r}
+title_change_list <- map2(yvars, titlenames,
+                      \(x,y) create_plot_quotes2(df=tib,
+                                                 xvar = ColA,
+                                                 yvar = x,
+                                                 titlename = y))
+
+try(title_change_list)
+```
+
+# Injecting unknown number of variables into user functions
+
+(useful with group_by)
+
+## Two methods
+
+### First method (...)
+
+The dot.dot.dot (...) pattern must be placed at the end of the parameter list in the formals section of the user-defined function. All parameters must be declared when calling the function, irrespective if a parameter has a default value. The (...) can be used directory in a tidyverse function eg. group_by, or can first be saved to a list object, preferably using the rlang::list2 function.
+
+```{r}
+tib_small <-
+  tibble(colA = rnorm(50),
+         colB = rep(letters[1:5], times = 10),
+         colC = rep(LETTERS[1:5], each = 10))
+
+func_dots <- function(df, field1, ...){
+  df %>%
+    group_by(...) %>%
+    summarise(mean = mean({{field1}}, na.rm = T))
+}
+
+func_dots(df = tib_small, colA)
+func_dots(df = tib_small, colB, colA) #Error : colB is in field 1 place. Can't sum a character vector
+func_dots(df = tib_small, colA, colB)
+func_dots(df = tib_small, colA, colB, colC)
+```
+
+### Second method
+
+Use a vector in place of dot.dot.dot. Order of arguments in formal section of user-function not critical. In order to convert the character strings of vector_args into selecting the columns in the dataframe, the function combination "across(all_of(vector_args))" must be used in a tidy function such as group_by, select etc.
+
+```{r}
+func_vector_parameter <- function(df, field1, vector_args, quote = NULL){
+  obj <-
+    df %>%
+    group_by(across(all_of(vector_args))) %>%
+    summarise(mean = mean({{field1}}, na.rm = T))
+
+  if(!is.null(quote)){
+    message("My quote is ", quote)
+    return(obj)
+  }
+
+  return(obj)
+
+}
+
+# Example where order of parameters matters.
+func_vector_parameter(df = tib_small, field1 = colA, vector_args = c("colB"))
+func_vector_parameter(df = tib_small, field1 = colA, vector_args = c("colB"), quote = "Hello")
+# default NULL field must be specified after multiple argument field
+
+func_vector_parameter(df = tib_small, field1 = colA, vector_args = c("colB", "colC"))
+func_vector_parameter(tib_small, colA, c("colB", "colC"))
+func_vector_parameter(df = tib_small, vector_args = c("colB", "colC"), field1 = colA)
+
+# Can insert a vector as argument of parameter
+v_args <- c("colB", "colC")
+func_vector_parameter(df = tib_small, field1 = colA, vector_args = v_args)
+```
