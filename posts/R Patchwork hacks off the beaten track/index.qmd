@@ -4,6 +4,12 @@ author: "Andrew Saul"
 date: "2025-02-04"
 categories: [Patchwork]
 image: "image.jpg"
+format:    
+  html:     
+    code-fold: true     
+    code-summary: "Show the code"     
+    fig-numbering: true     
+    tbl-cap-location: top 
 ---
 
 ```{r include = FALSE}
